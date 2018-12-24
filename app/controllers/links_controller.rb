@@ -1,4 +1,6 @@
 class LinksController < ApplicationController
+  before_action :get_link, only: [:show, :destroy, :update]
+
   def index
     if params[:oldest]
       @links = current_user.links.oldest_first.page params[:page]
@@ -25,27 +27,45 @@ class LinksController < ApplicationController
       end
     else
       flash[:error] = "Invalid URL"
-      respond_to do |format|
-        format.html { redirect_to links_path }
-        format.json { render json: @link.errors, status: :bad_request }
-      end
+      bad_request
     end
   end
 
-  def show
-    @link = Link.find(params[:id])
-  end
-
   def destroy
-    @link = Link.find(params[:id])
     @link.destroy
 
     redirect_back fallback_location: links_path
+  end
+
+  def update
+    if params[:public]
+      if @link.update(public: !@link.public)
+        flash[:notice] = "Link updated"
+        respond_to do |format|
+          format.html { redirect_to links_path }
+          format.json { render json: @link.to_json, status: :ok }
+        end
+      else
+        flash[:error] = "Link failed to update"
+        bad_request
+      end
+    end
   end
 
   private
 
   def link_params
     params.require(:link).permit(:url)
+  end
+
+  def get_link
+    @link ||= current_user.links.find(params[:id])
+  end
+
+  def bad_request
+    respond_to do |format|
+      format.html { redirect_to links_path }
+      format.json { render json: @link.errors, status: :bad_request }
+    end
   end
 end
